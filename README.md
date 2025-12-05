@@ -8,7 +8,7 @@ A complete customer-facing e-commerce website for an electrical products company
 ### Customer Portal: 
     http://localhost/LabAutomation/frontend/ 
 ### Admin Dashboard: 
-    ` http://localhost/LabAutomation/backend/dashboard.php `
+    http://localhost/LabAutomation/backend/dashboard.php 
 
 
 ### Technology Stack
