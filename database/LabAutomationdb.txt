@@ -1,0 +1,247 @@
+CREATE TABLE roles (
+    role_id INT PRIMARY KEY AUTO_INCREMENT,
+    role_name VARCHAR(50) NOT NULL,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    full_name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role_id INT NOT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+);
+
+
+
+CREATE TABLE products (
+    product_code VARCHAR(10) PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    manufacturer_id INT NOT NULL,
+    revise_number INT NOT NULL,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (manufacturer_id) REFERENCES users(user_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
+);
+
+
+
+CREATE TABLE testing_type (
+    test_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    type_name VARCHAR(100) NOT NULL,
+    test_code VARCHAR(10) NOT NULL,
+    is_modular TINYINT(1) DEFAULT 1,
+    parent_type_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (parent_type_id) REFERENCES testing_type(test_type_id)
+);
+
+
+
+CREATE TABLE test_records (
+    record_id INT PRIMARY KEY AUTO_INCREMENT,
+    testing_id VARCHAR(12) NOT NULL UNIQUE,
+    product_id_fk VARCHAR(10) NOT NULL,
+    test_type_id INT NOT NULL,
+    test_date DATE NOT NULL,
+    tester_user_id INT NOT NULL,
+    test_result ENUM('Passed', 'Failed') NOT NULL,
+    approval_status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+    tester_remarks TEXT,
+    manager_remarks TEXT,
+    validated_by_user_id INT,
+    validation_date TIMESTAMP NULL,
+    image LONGBLOB NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (product_id_fk) REFERENCES products(product_code),
+    FOREIGN KEY (test_type_id) REFERENCES testing_type(test_type_id),
+    FOREIGN KEY (tester_user_id) REFERENCES users(user_id),
+    FOREIGN KEY (validated_by_user_id) REFERENCES users(user_id)
+);
+
+
+
+CREATE TABLE financial_tracking (
+    cost_id INT PRIMARY KEY AUTO_INCREMENT,
+    record_id_fk INT NOT NULL,
+    product_code VARCHAR(10) NOT NULL,
+    testing_id VARCHAR(12) NOT NULL,
+    result ENUM('Passed', 'Failed') NOT NULL,
+    approval_status ENUM('Pending', 'Approved', 'Rejected') NOT NULL,
+    tester_name VARCHAR(100),
+    random_cost INT NOT NULL,
+    approved_by_cpri INT NULL,
+    checking_manager INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (record_id_fk) REFERENCES test_records(record_id),
+    FOREIGN KEY (product_code) REFERENCES products(product_code),
+    FOREIGN KEY (approved_by_cpri) REFERENCES users(user_id),
+    FOREIGN KEY (checking_manager) REFERENCES users(user_id)
+);
+
+
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY AUTO_INCREMENT,
+    customer_id INT NOT NULL,
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Pending','Confirmed','Shipped','Delivered','Cancelled') DEFAULT 'Pending',
+
+    FOREIGN KEY (customer_id) REFERENCES users(user_id)
+);
+
+
+
+CREATE TABLE order_items (
+    item_id INT PRIMARY KEY AUTO_INCREMENT,
+    order_id INT NOT NULL,
+    product_code VARCHAR(10) NOT NULL,
+    quantity INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (product_code) REFERENCES products(product_code)
+
+
+
+CREATE TABLE cart (
+    cart_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_code VARCHAR(10) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (product_code) REFERENCES products(product_code)
+);
+
+
+
+CREATE TABLE product_counter (
+    id INT AUTO_INCREMENT PRIMARY KEY
+);
+
+
+DELIMITER $$
+
+CREATE TRIGGER trg_generate_product_code
+BEFORE INSERT ON products
+FOR EACH ROW
+BEGIN
+    INSERT INTO product_counter VALUES (NULL);
+
+    SET NEW.product_code = CONCAT(
+        LPAD(NEW.manufacturer_id, 3, '0'),
+        LPAD(NEW.revise_number, 2, '0'),
+        LPAD(LAST_INSERT_ID(), 5, '0')
+    );
+END$$
+
+DELIMITER ;
+
+
+
+CREATE TABLE test_counter (
+    id INT AUTO_INCREMENT PRIMARY KEY
+);
+
+
+
+DELIMITER $$
+
+CREATE TRIGGER trg_generate_testing_id
+BEFORE INSERT ON test_records
+FOR EACH ROW
+BEGIN
+    INSERT INTO test_counter VALUES (NULL);
+
+    SET NEW.testing_id = CONCAT(
+        NEW.product_id_fk,
+        LPAD(LAST_INSERT_ID(), 2, '0')
+    );
+END$$
+
+DELIMITER ;
+
+
+
+
+INSERT INTO roles (role_name, description) VALUES
+('Admin', 'System Administrator with full access'),
+('Manufacturer', 'Product manufacturer role'),
+('CPRI', 'CPRI Testing Authority'),
+('Customer', 'End user customer who purchases products');
+
+INSERT INTO users (full_name, username, password_hash, role_id) VALUES
+('System Admin', 'admin', 'admin123', 1),
+('Manufacture', 'mfg01', 'maf123', 2),
+('CPRI Testing Lab', 'cpri01', 'cpri123', 3),
+('Ali Khan', 'ali', 'cust123', 4);
+
+
+
+
+INSERT INTO testing_type (type_name, test_code, is_modular) VALUES
+('Thermal Test', 'THR01', 1),
+('Mechanical Strength Test', 'MEC01', 1),
+('Insulation Test', 'INS01', 1);
+
+-- Sub-modular
+INSERT INTO testing_type (type_name, test_code, is_modular, parent_type_id) VALUES
+('Thermal Shock Test', 'THR02', 0, 1),
+('Heat Endurance Test', 'THR03', 0, 1);
+
+
+
+INSERT INTO products (product_name, manufacturer_id, revise_number, created_by, product_img) VALUES
+('High Voltage Fuse', 2, 1, 1, 'images/fuse.jpg'),
+('Industrial Capacitor', 2, 1, 1, 'images/capacitor.jpg'),
+('Heavy Duty Resistor', 2, 2, 1, 'images/resistor.jpg');
+
+
+
+
+INSERT INTO test_records
+(product_id_fk, test_type_id, test_date, tester_user_id, test_result, approval_status, tester_remarks, validated_by_user_id)
+VALUES
+('0020100001', 1, '2025-12-01', 2, 'Passed', 'Approved', 'Thermal parameters stable.',3),
+('0020100002', 2, '2025-12-02', 2, 'Failed', 'Rejected', 'Mechanical strength below threshold.',3),
+('0020200003', 3, '2025-12-03', 2, 'Passed', 'Approved', 'Insulation resistance within limits.',3);
+
+INSERT INTO financial_tracking
+(record_id_fk, product_code, testing_id, result, approval_status, tester_name, random_cost)
+VALUES
+(1, '0020100001', '002010000117', 'Passed', 'Approved', 'Lab Tester 01', 1500),
+(2, '0020100002', '002010000218', 'Failed', 'Rejected', 'Lab Tester 02', 2200),
+(3, '0020200003', '002020000319', 'Passed', 'Approved', 'Lab Tester 03', 1800);
+
+INSERT INTO orders (customer_id, status) VALUES
+(4, 'Pending'), 
+(4, 'Confirmed');
+
+
+INSERT INTO order_items (order_id, product_code, quantity, price) VALUES
+(1, '0020100001', 2, 1200.00),
+(1, '0020100002', 1, 2400.00),
+(2, '0020200003', 3, 900.00);
+
+
+
+
